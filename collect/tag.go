@@ -40,18 +40,23 @@ func RequestStructure(req *http.Request, spider ...bool) {
 
 var baiduSpiderIP = []string{"116.179.37.", "124.166.232.", "116.179.32.", "180.76.15.", "180.76.5."}
 
+type ArticleTag struct {
+	Name string
+	Tag  string
+}
+
 // Article 文章
 type Article struct {
-	Title       string    // 标题
-	Content     string    // 正文
-	Alias       string    // 别名
-	Tag         []string  // 标签
-	Cate        Category  // 分类
-	AuthorName  string    // 作者
-	PostTime    time.Time // 发布时间
-	Intro       string    // 摘要
-	Href        string    // 链接
-	LocalImages []string  // 本地下载的图片
+	Title       string       // 标题
+	Content     string       // 正文
+	Alias       string       // 别名
+	Tag         []ArticleTag // 标签
+	Cate        Category     // 分类
+	AuthorName  string       // 作者
+	PostTime    time.Time    // 发布时间
+	Intro       string       // 摘要
+	Href        string       // 链接
+	LocalImages []string     // 本地下载的图片
 }
 
 // Category 分类

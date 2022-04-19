@@ -3,7 +3,10 @@ package techsir_com
 import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/cgghui/bt_site_cluster_collect/collect"
+	"github.com/cgghui/cgghui"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -83,20 +86,28 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	if art.Href == "" {
 		return collect.ErrUndefinedArticleHref
 	}
-	var req *http.Request
-	if req, err = http.NewRequest(http.MethodGet, c.HomeURL+art.Href, nil); err != nil {
-		return err
+	var cache *os.File
+	cacheFilePath := "./cache/" + cgghui.MD5(c.HomeURL+art.Href) + ".html"
+	if cache, err = os.Open(cacheFilePath); err != nil {
+		var req *http.Request
+		if req, err = http.NewRequest(http.MethodGet, c.HomeURL+art.Href, nil); err != nil {
+			return err
+		}
+		collect.RequestStructure(req, true)
+		var resp *http.Response
+		if resp, err = collect.HttpClient.Do(req); err != nil {
+			return err
+		}
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+		if cache, err = os.Create(cacheFilePath); err == nil {
+			_, _ = io.Copy(cache, resp.Body)
+		}
+		_, _ = cache.Seek(0, io.SeekStart)
 	}
-	collect.RequestStructure(req, true)
-	var resp *http.Response
-	if resp, err = collect.HttpClient.Do(req); err != nil {
-		return err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 	var doc *goquery.Document
-	if doc, err = goquery.NewDocumentFromReader(resp.Body); err != nil {
+	if doc, err = goquery.NewDocumentFromReader(cache); err != nil {
 		return err
 	}
 	art.Title = doc.Find(".title").Text()
@@ -107,6 +118,7 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	if art.LocalImages == nil {
 		art.LocalImages = make([]string, 0)
 	}
+	// 处理图片
 	doc.Find(".kg-card-markdown img").Each(func(_ int, img *goquery.Selection) {
 		src := img.AttrOr("src", "")
 		if src == "" {
@@ -121,8 +133,26 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		}
 		img.RemoveAttr("data-original")
 		img.RemoveAttr("data-link")
+		img.RemoveAttr("srcset")
 		img.SetAttr("src", imgPath)
 		art.LocalImages = append(art.LocalImages, imgPath)
+	})
+	if art.Tag == nil {
+		art.Tag = make([]collect.ArticleTag, 0)
+	}
+	// 处理标签
+	doc.Find(".kg-card-markdown .infotextkey").Each(func(_ int, k *goquery.Selection) {
+		tag := k.AttrOr("href", "")
+		if strings.Contains(tag, "/s/") {
+			tag = strings.SplitN(tag, "/s/", 2)[1]
+			tag = strings.TrimRight(tag, "/")
+		} else {
+			tag = ""
+		}
+		art.Tag = append(art.Tag, collect.ArticleTag{
+			Name: k.Text(),
+			Tag:  tag,
+		})
 	})
 	art.Content, _ = doc.Find(".kg-card-markdown").Html()
 	return nil

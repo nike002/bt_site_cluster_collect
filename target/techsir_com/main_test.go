@@ -15,6 +15,9 @@ func TestTechsir(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("article list == 0")
 	}
-	_ = obj.ArticleDetail(&list[0])
-	fmt.Println(list)
+	for i := range list {
+		_ = obj.ArticleDetail(&list[i])
+	}
+
+	fmt.Println()
 }
