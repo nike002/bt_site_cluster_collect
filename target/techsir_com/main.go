@@ -27,6 +27,14 @@ type CollectGo struct {
 	HomeURL string
 }
 
+func (c CollectGo) GetTag() []collect.Tag {
+	r := make([]collect.Tag, 0)
+	for k := range Column {
+		r = append(r, k)
+	}
+	return r
+}
+
 func (c CollectGo) ArticleList(tag collect.Tag, page int) ([]collect.Article, error) {
 	if _, ok := Column[tag]; !ok {
 		return nil, collect.ErrUndefinedTag
