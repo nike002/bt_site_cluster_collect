@@ -78,7 +78,7 @@ func (c CollectGo) ArticleList(tag collect.Tag, page int) ([]collect.Article, er
 	return articles, nil
 }
 
-func (c CollectGo) ArticleDetail(art *collect.Article, site *collect.Site) error {
+func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	var err error
 	if art.Href == "" {
 		return collect.ErrUndefinedArticleHref
@@ -104,24 +104,26 @@ func (c CollectGo) ArticleDetail(art *collect.Article, site *collect.Site) error
 	if err == nil {
 		art.PostTime = art.PostTime.Local()
 	}
-	if site != nil {
-		doc.Find(".kg-card-markdown img").Each(func(_ int, img *goquery.Selection) {
-			src := img.AttrOr("src", "")
-			if src == "" {
-				return
-			}
-			var imgPath string
-			if imgPath, err = collect.DownloadImage(src); err != nil {
-				return
-			}
-			if alt := img.AttrOr("alt", ""); len(alt) == 0 {
-				img.RemoveAttr("alt")
-			}
-			img.RemoveAttr("data-original")
-			img.RemoveAttr("data-link")
-			img.SetAttr("src", imgPath)
-		})
+	if art.LocalImages == nil {
+		art.LocalImages = make([]string, 0)
 	}
+	doc.Find(".kg-card-markdown img").Each(func(_ int, img *goquery.Selection) {
+		src := img.AttrOr("src", "")
+		if src == "" {
+			return
+		}
+		var imgPath string
+		if imgPath, err = collect.DownloadImage(src); err != nil {
+			return
+		}
+		if alt := img.AttrOr("alt", ""); len(alt) == 0 {
+			img.RemoveAttr("alt")
+		}
+		img.RemoveAttr("data-original")
+		img.RemoveAttr("data-link")
+		img.SetAttr("src", imgPath)
+		art.LocalImages = append(art.LocalImages, imgPath)
+	})
 	art.Content, _ = doc.Find(".kg-card-markdown").Html()
 	return nil
 }

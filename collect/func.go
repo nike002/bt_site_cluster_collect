@@ -101,35 +101,16 @@ func DownloadImage(imgURL string) (string, error) {
 	return link.Path, nil
 }
 
-type Site struct {
-	bt.Site
-	Session *bt.Session
-}
-
-// GetSite 获取站点
-func GetSite(id uint, s *bt.Session) (*Site, error) {
-	siteData, err := s.GetSiteListWithTimeout(6 * time.Second)
-	if err != nil {
-		return nil, err
-	}
-	for _, site := range siteData.Data {
-		if site.ID == id {
-			return &Site{Site: site, Session: s}, nil
-		}
-	}
-	return nil, ErrUndefinedSite
-}
-
 // UploadImage 往宝塔上传文件
-func UploadImage(site *Site, imgPath string) {
+func UploadImage(s *bt.Session, siteRootPath, imgPath string) {
 	imgRootPath := ImgRootPath + imgPath
 	var fp *os.File
 	var err error
 	if fp, err = os.Open(imgRootPath); err != nil {
 		return
 	}
-	serverPath := path.Dir(site.Path + imgPath)
-	if err = site.Session.UploadWithTimeout(UploadTimeout, imgRootPath, serverPath, fp, true); err != nil {
+	serverPath := path.Dir(siteRootPath + imgPath)
+	if err = s.UploadWithTimeout(UploadTimeout, imgRootPath, serverPath, fp, true); err != nil {
 		log.Printf("图片上传失败，请手动完成，%s。Error: %v", imgRootPath, err)
 		return
 	}

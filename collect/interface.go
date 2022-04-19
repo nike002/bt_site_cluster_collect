@@ -42,5 +42,5 @@ type Standard interface {
 
 	// ArticleDetail 获取文章的详细内容
 	// 如果 art.Href 为空， 则应返回 ErrUndefinedArticleHref
-	ArticleDetail(*Article, *Site) error
+	ArticleDetail(*Article) error
 }
