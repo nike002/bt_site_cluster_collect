@@ -149,14 +149,17 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		} else {
 			tag = ""
 		}
-		art.Tag = append(art.Tag, collect.ArticleTag{
+		tg := collect.ArticleTag{
 			Name: k.Text(),
 			Tag:  tag,
-		})
+		}
+		art.Tag = append(art.Tag, tg)
 		k.RemoveAttr("href")
 		k.RemoveAttr("target")
 		k.RemoveClass("infotextkey")
 		k.AddClass(collect.TagClass[1:])
+		k.SetAttr("data-name", tg.Name)
+		k.SetAttr("data-tag", tg.Tag)
 	})
 	art.Content, _ = doc.Find(".kg-card-markdown").Html()
 	art.Content = strings.TrimSpace(art.Content)
