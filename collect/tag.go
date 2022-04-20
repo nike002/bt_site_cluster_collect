@@ -14,7 +14,11 @@ const (
 	TagCommerce Tag = 0 // 电商
 )
 
-const TagClass = ".tag"
+const (
+	TagClass     = ".tag"
+	TagAttrName  = "data-name"
+	TagAttrValue = "data-tag"
+)
 
 const UserAgentChrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36"
 const UserAgentSogouSpider = "Sogou web spider/4.0(+http://www.sogou.com/docs/help/webmasters.htm#07)"

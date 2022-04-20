@@ -81,14 +81,25 @@ func (c CollectGo) ArticleList(tag collect.Tag, page int) ([]collect.Article, er
 	return articles, nil
 }
 
+func (c CollectGo) HasSnapshot(art *collect.Article) bool {
+	if art.Href == "" {
+		return false
+	}
+	dir := cgghui.MD5(c.HomeURL + art.Href)
+	return collect.PathExists("./snapshot/" + Name + "/" + string(dir[0]) + "/" + dir + ".html")
+}
+
 func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	var err error
 	if art.Href == "" {
 		return collect.ErrUndefinedArticleHref
 	}
 	var cache *os.File
-	cacheFilePath := "./cache/" + cgghui.MD5(c.HomeURL+art.Href) + ".html"
-	if cache, err = os.Open(cacheFilePath); err != nil {
+	dir := cgghui.MD5(c.HomeURL + art.Href)
+	snapshotPath := "./snapshot/" + Name + "/" + string(dir[0]) + "/"
+	_ = os.MkdirAll(snapshotPath, 0666)
+	snapshotPath += dir + ".html"
+	if cache, err = os.Open(snapshotPath); err != nil {
 		var req *http.Request
 		if req, err = http.NewRequest(http.MethodGet, c.HomeURL+art.Href, nil); err != nil {
 			return err
@@ -101,7 +112,7 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		defer func() {
 			_ = resp.Body.Close()
 		}()
-		if cache, err = os.Create(cacheFilePath); err == nil {
+		if cache, err = os.Create(snapshotPath); err == nil {
 			_, _ = io.Copy(cache, resp.Body)
 		}
 		_, _ = cache.Seek(0, io.SeekStart)
@@ -134,6 +145,8 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		img.RemoveAttr("data-original")
 		img.RemoveAttr("data-link")
 		img.RemoveAttr("srcset")
+		img.RemoveAttr("sizes")
+		img.RemoveAttr("title")
 		img.SetAttr("src", imgPath)
 		art.LocalImages = append(art.LocalImages, imgPath)
 	})
@@ -158,8 +171,12 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		k.RemoveAttr("target")
 		k.RemoveClass("infotextkey")
 		k.AddClass(collect.TagClass[1:])
-		k.SetAttr("data-name", tg.Name)
-		k.SetAttr("data-tag", tg.Tag)
+		k.SetAttr(collect.TagAttrName, tg.Name)
+		k.SetAttr(collect.TagAttrValue, tg.Tag)
+	})
+	// 处理<p>
+	doc.Find(".kg-card-markdown p").Each(func(i int, p *goquery.Selection) {
+		p.RemoveAttr("data-track")
 	})
 	art.Content, _ = doc.Find(".kg-card-markdown").Html()
 	art.Content = strings.TrimSpace(art.Content)

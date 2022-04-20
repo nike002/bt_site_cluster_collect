@@ -78,12 +78,15 @@ func DownloadImage(imgURL string) (string, error) {
 	if storePath == ImgRootPath+"/" {
 		return "", ErrNotFile
 	}
+	if PathExists(storePath) {
+		return link.Path, nil
+	}
 	var req *http.Request
 	req, err = http.NewRequest(http.MethodGet, imgURL, nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
+	req.Header.Add("User-Agent", UserAgentChrome)
 	var resp *http.Response
 	if resp, err = http.DefaultClient.Do(req); err != nil {
 		return "", err
@@ -114,4 +117,12 @@ func UploadImage(s *bt.Session, siteRootPath, imgPath string) {
 		log.Printf("图片上传失败，请手动完成，%s。Error: %v", imgRootPath, err)
 		return
 	}
+}
+
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	return !os.IsNotExist(err)
 }

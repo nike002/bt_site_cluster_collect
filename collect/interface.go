@@ -43,4 +43,8 @@ type Standard interface {
 	// ArticleDetail 获取文章的详细内容
 	// 如果 art.Href 为空， 则应返回 ErrUndefinedArticleHref
 	ArticleDetail(*Article) error
+
+	// HasSnapshot 文章是否存在快照
+	// 如果 art.Href 为空， 存在返回true 不存在返回false
+	HasSnapshot(art *Article) bool
 }
