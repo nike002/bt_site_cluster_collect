@@ -141,6 +141,10 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		}
 		if alt := img.AttrOr("alt", ""); len(alt) == 0 {
 			img.RemoveAttr("alt")
+		} else {
+			if strings.Contains(alt, "http://") {
+				img.RemoveAttr("alt")
+			}
 		}
 		img.RemoveAttr("data-original")
 		img.RemoveAttr("data-link")
@@ -162,10 +166,7 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		} else {
 			tag = ""
 		}
-		tg := collect.ArticleTag{
-			Name: k.Text(),
-			Tag:  tag,
-		}
+		tg := collect.ArticleTag{Name: strings.TrimSpace(k.Text()), Tag: strings.TrimSpace(tag)}
 		art.Tag = append(art.Tag, tg)
 		k.RemoveAttr("href")
 		k.RemoveAttr("target")
@@ -173,6 +174,34 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		k.AddClass(collect.TagClass[1:])
 		k.SetAttr(collect.TagAttrName, tg.Name)
 		k.SetAttr(collect.TagAttrValue, tg.Tag)
+	})
+	// 处理<a>
+	doc.Find(".kg-card-markdown a").Each(func(_ int, a *goquery.Selection) {
+		if _, ok := a.Attr(collect.TagAttrName); ok {
+			return
+		}
+		href := a.AttrOr("href", "")
+		if strings.Contains(href, "/tag/") {
+			tg := collect.ArticleTag{Name: strings.TrimSpace(a.Text()), Tag: ""}
+			if tg.Name == "" {
+				a.Remove()
+			} else {
+				art.Tag = append(art.Tag, tg)
+				a.AddClass(collect.TagClass[1:])
+				a.SetAttr(collect.TagAttrName, tg.Name)
+				a.SetAttr(collect.TagAttrValue, tg.Tag)
+			}
+		}
+		a.RemoveAttr("href")
+		a.RemoveAttr("title")
+		a.RemoveAttr("data-group")
+		a.RemoveAttr("data-id")
+		a.RemoveAttr("data-index")
+		aParent := a.Parent()
+		if aParent.Is("figure") {
+			html, _ := a.Html()
+			aParent.SetHtml(html)
+		}
 	})
 	// 处理<p>
 	doc.Find(".kg-card-markdown p").Each(func(i int, p *goquery.Selection) {

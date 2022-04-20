@@ -81,27 +81,35 @@ func DownloadImage(imgURL string) (string, error) {
 	if PathExists(storePath) {
 		return link.Path, nil
 	}
-	var req *http.Request
-	req, err = http.NewRequest(http.MethodGet, imgURL, nil)
-	if err != nil {
+	if err = Download(imgURL, storePath); err != nil {
 		return "", err
+	}
+	return link.Path, nil
+}
+
+func Download(target, storePath string) error {
+	var req *http.Request
+	var err error
+	req, err = http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		return err
 	}
 	req.Header.Add("User-Agent", UserAgentChrome)
 	var resp *http.Response
 	if resp, err = http.DefaultClient.Do(req); err != nil {
-		return "", err
+		return err
 	}
 	if err = os.MkdirAll("./"+path.Dir(storePath), 0755); err != nil {
-		return "", err
+		return err
 	}
 	var save *os.File
 	if save, err = os.Create(storePath); err != nil {
-		return "", err
+		return err
 	}
 	if _, err = io.Copy(save, resp.Body); err != nil {
-		return "", err
+		return err
 	}
-	return link.Path, nil
+	return nil
 }
 
 // UploadImage 往宝塔上传文件
@@ -119,6 +127,7 @@ func UploadImage(s *bt.Session, siteRootPath, imgPath string) {
 	}
 }
 
+// PathExists 路径或文件是否存在 true存在 false不存在
 func PathExists(path string) bool {
 	_, err := os.Stat(path)
 	if err == nil {
