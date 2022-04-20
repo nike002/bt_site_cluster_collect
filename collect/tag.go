@@ -14,6 +14,8 @@ const (
 	TagCommerce Tag = 0 // 电商
 )
 
+const TagClass = ".tag"
+
 const UserAgentChrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36"
 const UserAgentSogouSpider = "Sogou web spider/4.0(+http://www.sogou.com/docs/help/webmasters.htm#07)"
 const UserAgentBaiduSpider = "Mozilla/5.0 (compatible; Baiduspider-render/2.0; +http://www.baidu.com/search/spider.html)"

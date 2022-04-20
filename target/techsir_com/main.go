@@ -156,7 +156,7 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		k.RemoveAttr("href")
 		k.RemoveAttr("target")
 		k.RemoveClass("infotextkey")
-		k.AddClass("tag")
+		k.AddClass(collect.TagClass[1:])
 	})
 	art.Content, _ = doc.Find(".kg-card-markdown").Html()
 	art.Content = strings.TrimSpace(art.Content)
