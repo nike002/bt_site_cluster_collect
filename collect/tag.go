@@ -11,7 +11,17 @@ import (
 type Tag uint8
 
 const (
-	TagCommerce Tag = 0 // 电商
+	TagCommerce Tag = 0  // 电商
+	TagMobile   Tag = 1  // 手机
+	TagCar      Tag = 2  // 汽车
+	TagSmart    Tag = 3  // 智能
+	TagIT       Tag = 4  // 互联网
+	TagTX       Tag = 5  // 通讯
+	TagLife     Tag = 6  // 生活
+	TagSAB      Tag = 7  // 创业
+	TagScience  Tag = 8  // 科学
+	TagDigital  Tag = 9  // 数码
+	TagFashion  Tag = 10 // 时尚
 )
 
 const (
@@ -33,6 +43,7 @@ var HttpClient = &http.Client{
 
 var ErrUndefinedTag = errors.New("undefined tag")
 var ErrUndefinedArticleHref = errors.New("undefined article href")
+var ErrArticleTooShort = errors.New("article too short")
 
 // RequestStructure 构造请求
 func RequestStructure(req *http.Request, spider ...bool) {

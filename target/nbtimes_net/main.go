@@ -1,4 +1,4 @@
-package techsir_com
+package nbtimes_net
 
 import (
 	"github.com/PuerkitoBio/goquery"
@@ -13,19 +13,20 @@ import (
 )
 
 const (
-	Name = "techsir_com"
+	Name = "nbtimes_net"
 )
 
 func init() {
 	collect.RegisterStandard(Name, func() collect.Standard {
-		return &CollectGo{HomeURL: "https://www.techsir.com/"}
+		return &CollectGo{HomeURL: "https://www.nbtimes.net/"}
 	})
 }
 
 var Column = map[collect.Tag]string{
-	collect.TagCommerce: "ebiz/index{page}.html",
-	collect.TagMobile:   "shuma/index{page}.html",
-	collect.TagCar:      "chanye/car/index{page}.html",
+	collect.TagCommerce: "page/{page}?s=电商",
+	collect.TagMobile:   "page/{page}?s=手机",
+	collect.TagCar:      "page/{page}?s=汽车",
+	collect.TagSmart:    "page/{page}?s=智能",
 }
 
 type CollectGo struct {
@@ -45,11 +46,7 @@ func (c CollectGo) ArticleList(tag collect.Tag, page int) ([]collect.Article, er
 		return nil, collect.ErrUndefinedTag
 	}
 	target := c.HomeURL + Column[tag]
-	if page <= 1 {
-		target = strings.ReplaceAll(target, "{page}", "")
-	} else {
-		target = strings.ReplaceAll(target, "{page}", "_"+strconv.Itoa(page))
-	}
+	target = strings.Replace(target, "{page}", strconv.Itoa(page), 1)
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
@@ -67,17 +64,14 @@ func (c CollectGo) ArticleList(tag collect.Tag, page int) ([]collect.Article, er
 		return nil, err
 	}
 	articles := make([]collect.Article, 0)
-	doc.Find(".title").Each(func(_ int, h2 *goquery.Selection) {
-		if !h2.HasClass("h4") {
+	doc.Find(".post-loop-default li").Each(func(_ int, li *goquery.Selection) {
+		if !li.HasClass("item") {
 			return
 		}
-		href := h2.Find("a").AttrOr("href", "")
-		if href == "" {
-			return
-		}
+		href := li.Find(".item-title a")
 		articles = append(articles, collect.Article{
-			Title: strings.TrimSpace(h2.Find("a").Text()),
-			Href:  href,
+			Title: strings.TrimSpace(href.Text()),
+			Href:  href.AttrOr("href", ""),
 		})
 	})
 	return articles, nil
@@ -87,7 +81,7 @@ func (c CollectGo) HasSnapshot(art *collect.Article) bool {
 	if art.Href == "" {
 		return false
 	}
-	dir := cgghui.MD5(c.HomeURL + art.Href)
+	dir := cgghui.MD5(art.Href)
 	return collect.PathExists("./snapshot/" + Name + "/" + string(dir[0]) + "/" + dir + ".html")
 }
 
@@ -97,13 +91,13 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 		return collect.ErrUndefinedArticleHref
 	}
 	var cache *os.File
-	dir := cgghui.MD5(c.HomeURL + art.Href)
+	dir := cgghui.MD5(art.Href)
 	snapshotPath := "./snapshot/" + Name + "/" + string(dir[0]) + "/"
 	_ = os.MkdirAll(snapshotPath, 0666)
 	snapshotPath += dir + ".html"
 	if cache, err = os.Open(snapshotPath); err != nil {
 		var req *http.Request
-		if req, err = http.NewRequest(http.MethodGet, c.HomeURL+art.Href, nil); err != nil {
+		if req, err = http.NewRequest(http.MethodGet, art.Href, nil); err != nil {
 			return err
 		}
 		collect.RequestStructure(req, true)
@@ -123,9 +117,9 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	if doc, err = goquery.NewDocumentFromReader(cache); err != nil {
 		return err
 	}
-	art.Title = doc.Find(".title").Text()
+	art.Title = doc.Find(`meta[property="og:title"]`).AttrOr("content", "")
 	art.Title = strings.TrimSpace(art.Title)
-	art.PostTime, err = time.Parse("2006-01-02", doc.Find(".time").Text())
+	art.PostTime, err = time.Parse(time.RFC3339, doc.Find(".entry-date").AttrOr("datetime", ""))
 	if err == nil {
 		art.PostTime = art.PostTime.Local()
 	} else {
@@ -134,15 +128,20 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 	if art.LocalImages == nil {
 		art.LocalImages = make([]string, 0)
 	}
+	word := doc.Find(".entry-content")
+	//
+	word.Find("div").Last().Remove()
+	word.Find("p").Last().Remove()
 	// 处理图片
-	doc.Find(".kg-card-markdown img").Each(func(_ int, img *goquery.Selection) {
+	word.Find(".pgc-img").Each(func(_ int, div *goquery.Selection) {
+		img := div.Find("img")
 		src := img.AttrOr("src", "")
 		if src == "" {
 			return
 		}
 		var imgPath string
 		if imgPath, err = collect.DownloadImage(src); err != nil {
-			img.Remove()
+			div.Remove()
 			return
 		}
 		if alt := img.AttrOr("alt", ""); len(alt) == 0 {
@@ -152,68 +151,51 @@ func (c CollectGo) ArticleDetail(art *collect.Article) error {
 				img.RemoveAttr("alt")
 			}
 		}
-		img.RemoveAttr("data-original")
-		img.RemoveAttr("data-link")
-		img.RemoveAttr("srcset")
-		img.RemoveAttr("sizes")
-		img.RemoveAttr("title")
+		img.RemoveAttr("data-ic")
+		img.RemoveAttr("data-ic-uri")
 		img.SetAttr("src", imgPath)
+		imgHTML, _ := div.Html()
+		div.BeforeHtml(imgHTML)
+		div.Remove()
 		art.LocalImages = append(art.LocalImages, imgPath)
 	})
+	// 处理<a>
 	if art.Tag == nil {
 		art.Tag = make([]collect.ArticleTag, 0)
 	}
-	// 处理标签
-	doc.Find(".kg-card-markdown .infotextkey").Each(func(_ int, k *goquery.Selection) {
-		tag := k.AttrOr("href", "")
-		if strings.Contains(tag, "/s/") {
-			tag = strings.SplitN(tag, "/s/", 2)[1]
-			tag = strings.TrimRight(tag, "/")
-		} else {
-			tag = ""
-		}
-		tg := collect.ArticleTag{Name: strings.TrimSpace(k.Text()), Tag: strings.TrimSpace(tag)}
-		art.Tag = append(art.Tag, tg)
-		k.RemoveAttr("href")
-		k.RemoveAttr("target")
-		k.RemoveClass("infotextkey")
-		k.AddClass(collect.TagClass[1:])
-		k.SetAttr(collect.TagAttrName, tg.Name)
-		k.SetAttr(collect.TagAttrValue, tg.Tag)
-	})
-	// 处理<a>
-	doc.Find(".kg-card-markdown a").Each(func(_ int, a *goquery.Selection) {
-		if _, ok := a.Attr(collect.TagAttrName); ok {
-			return
-		}
-		href := a.AttrOr("href", "")
-		if strings.Contains(href, "/tag/") {
-			tg := collect.ArticleTag{Name: strings.TrimSpace(a.Text()), Tag: ""}
-			if tg.Name == "" {
-				a.Remove()
+	word.Find("a").Each(func(_ int, a *goquery.Selection) {
+		// 标签
+		if span := a.Parent(); span.HasClass("wpcom_tag_link") {
+			tag := a.AttrOr("href", "")
+			if strings.Contains(tag, "/tag/") {
+				tag = strings.SplitN(tag, "/tag/", 2)[1]
+				tag = strings.TrimRight(tag, "/")
 			} else {
-				art.Tag = append(art.Tag, tg)
-				a.AddClass(collect.TagClass[1:])
-				a.SetAttr(collect.TagAttrName, tg.Name)
-				a.SetAttr(collect.TagAttrValue, tg.Tag)
+				tag = ""
 			}
-		}
-		a.RemoveAttr("href")
-		a.RemoveAttr("title")
-		a.RemoveAttr("data-group")
-		a.RemoveAttr("data-id")
-		a.RemoveAttr("data-index")
-		aParent := a.Parent()
-		if aParent.Is("figure") {
-			html, _ := a.Html()
-			aParent.SetHtml(html)
+			tg := collect.ArticleTag{Name: strings.TrimSpace(a.Text()), Tag: strings.TrimSpace(tag)}
+			art.Tag = append(art.Tag, tg)
+			a.RemoveAttr("href")
+			a.RemoveAttr("target")
+			a.AddClass(collect.TagClass[1:])
+			a.SetAttr(collect.TagAttrName, tg.Name)
+			a.SetAttr(collect.TagAttrValue, tg.Tag)
+			tagHTML, _ := span.Html()
+			span.BeforeHtml(tagHTML)
+			span.Remove()
+		} else {
+			aHTML, _ := a.Html()
+			a.BeforeHtml(aHTML)
+			a.Remove()
 		}
 	})
 	// 处理<p>
-	doc.Find(".kg-card-markdown p").Each(func(i int, p *goquery.Selection) {
+	word.Find("p").Each(func(i int, p *goquery.Selection) {
 		p.RemoveAttr("data-track")
 	})
-	art.Content, _ = doc.Find(".kg-card-markdown").Html()
+	art.Content, _ = word.Html()
+	art.Content = strings.ReplaceAll(art.Content, "【蓝科技综述】", "")
+	art.Content = strings.ReplaceAll(art.Content, "【蓝科技观察】", "")
 	art.Content = strings.TrimSpace(art.Content)
 	return nil
 }

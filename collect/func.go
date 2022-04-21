@@ -17,6 +17,7 @@ import (
 var ErrNotFile = errors.New("not file")
 var ErrNotScheme = errors.New("not scheme")
 var ErrUndefinedSite = errors.New("undefined site")
+var ErrInvalidImage = errors.New("invalid image")
 
 const ImgRootPath = "./upload_temp"
 const UploadTimeout = 10 * time.Minute
@@ -50,6 +51,11 @@ func DownloadImage(imgURL string) (string, error) {
 	}
 	if strings.Contains(link.Host, ".toutiaoimg.com") {
 		storePath = strings.SplitN(storePath, "~", 2)[0] + ".jpg"
+	}
+	if strings.Contains(link.Host, ".toutiao.com") {
+		if link.Path == "/mp/agw/article_material/open_image/get" {
+			return "", ErrInvalidImage
+		}
 	}
 	if strings.Contains(link.Host, ".byteimg.com") {
 		storePath = strings.ReplaceAll(storePath, "~", "_") + ".jpg"
